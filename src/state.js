@@ -20,7 +20,7 @@ export const makeCard = (c = {}) => ({
 
 const newId = (prefix) => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-export function makeDeck({ id, name, cards = [], targetIndexes = [], need = 1, mulligan = false, isSample = false } = {}) {
+export function makeDeck({ id, name, cards = [], targetIndexes = [], need = 1, match = 'any', mulligan = false, isSample = false } = {}) {
   const list = cards.map(makeCard);
   return {
     id: id || newId('d'),
@@ -28,6 +28,7 @@ export function makeDeck({ id, name, cards = [], targetIndexes = [], need = 1, m
     cards: list,
     targets: new Set(targetIndexes.map((i) => list[i]?.id).filter(Boolean)),
     need: Number.isInteger(need) ? need : 1,
+    match: match === 'all' ? 'all' : 'any', // 複数選んだとき: any = どれか、all = すべて
     mulligan: !!mulligan,
     isSample: !!isSample,
   };
@@ -50,7 +51,7 @@ state.activeId = state.decks[0].id;
 export const activeDeck = () => state.decks.find((d) => d.id === state.activeId) || state.decks[0];
 
 const packDeck = (d) => ({
-  id: d.id, name: d.name, need: d.need, mulligan: d.mulligan, isSample: d.isSample,
+  id: d.id, name: d.name, need: d.need, match: d.match, mulligan: d.mulligan, isSample: d.isSample,
   cards: d.cards.map(({ count, name, cost, inkable, color }) => ({ count, name, cost, inkable, color })),
   targetIndexes: d.cards.map((c, i) => (d.targets.has(c.id) ? i : -1)).filter((i) => i >= 0),
 });

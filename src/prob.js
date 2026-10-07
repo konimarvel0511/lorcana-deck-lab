@@ -105,3 +105,61 @@ export function inkOnCurve({ deckSize, inkable, turns = 8, onPlay = true }) {
   }
   return out;
 }
+
+/** AND条件で一度に選べるカードの種類数（計算量を抑えるための上限）。 */
+export const MAX_ALL_GROUPS = 6;
+
+/** n枚引いて、groups（各カードの枚数）のすべてを1枚以上引いている確率。包除原理で求める。 */
+function allPresent(N, groups, n) {
+  n = Math.min(n, N);
+  const base = choose(N, n);
+  let total = 0;
+  for (let mask = 0; mask < 1 << groups.length; mask++) {
+    let absent = 0, bits = 0;
+    for (let i = 0; i < groups.length; i++) if (mask & (1 << i)) { absent += groups[i]; bits++; }
+    total += (bits % 2 ? -1 : 1) * (choose(N - absent, n) / base);
+  }
+  return Math.min(1, Math.max(0, total));
+}
+
+/**
+ * 指定ターンまでに、選んだカードを「すべて」1枚以上引けている確率（AND条件）。
+ * groups は各カードの枚数（例: [4, 3] = 4枚積みと3枚積みの両方がほしい）。
+ * mulligan=true のときは「初手でそろっていなければ、選んだカード以外をすべて引き直す」戦略で計算する。
+ */
+export function drawAllProbability({ deckSize, groups, turn = 1, onPlay = true, mulligan = false }) {
+  const N = deckSize;
+  const total = groups.reduce((a, b) => a + b, 0);
+  if (N < HAND_SIZE || !groups.length || groups.some((k) => k <= 0) || total > N || groups.length > MAX_ALL_GROUPS) return 0;
+  const d = drawsByTurn(turn, onPlay);
+  if (!mulligan) return allPresent(N, groups, HAND_SIZE + d);
+
+  const rest = N - HAND_SIZE; // 引き直しで引く山、およびその後の山の枚数
+  const handBase = choose(N, HAND_SIZE);
+  let result = 0;
+  // 初手に含まれる各カードの枚数を総当たりする
+  const walk = (i, ways, used, missing) => {
+    if (i === groups.length) {
+      const p = (ways * choose(N - total, HAND_SIZE - used)) / handBase;
+      if (p === 0) return;
+      if (!missing.length) { result += p; return; }
+      // 足りないカードについて包除原理。引き直しでも、その後のドローでも引けない確率を引いていく。
+      // 戻したカードは対象外なので、引き直しで引けなかった種類は山に全部残っている。
+      const redraw = HAND_SIZE - used;
+      let ok = 0;
+      for (let mask = 0; mask < 1 << missing.length; mask++) {
+        let absent = 0, bits = 0;
+        for (let m = 0; m < missing.length; m++) if (mask & (1 << m)) { absent += missing[m]; bits++; }
+        const none = (choose(rest - absent, redraw) / choose(rest, redraw)) * (choose(rest - absent, Math.min(d, rest)) / choose(rest, Math.min(d, rest)));
+        ok += (bits % 2 ? -1 : 1) * none;
+      }
+      result += p * ok;
+      return;
+    }
+    for (let h = 0; h <= groups[i] && used + h <= HAND_SIZE; h++) {
+      walk(i + 1, ways * choose(groups[i], h), used + h, h === 0 ? [...missing, groups[i]] : missing);
+    }
+  };
+  walk(0, 1, 0, []);
+  return Math.min(1, Math.max(0, result));
+}

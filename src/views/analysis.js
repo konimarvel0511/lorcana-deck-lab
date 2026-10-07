@@ -1,5 +1,5 @@
 // 「分析」タブ: デッキ表と、確率・インク・カーブ・コスト分布。
-import { HAND_SIZE, drawProbability, inkOnCurve, openingInkableDistribution } from '../prob.js';
+import { HAND_SIZE, MAX_ALL_GROUPS, drawProbability, drawAllProbability, inkOnCurve, openingInkableDistribution } from '../prob.js';
 import { INK_COLORS, MIN_DECK_SIZE, MAX_COPIES, MAX_COST_BUCKET, colorLabel, parseDeckList, summarize } from '../deck.js';
 import { fillFromData, lookupCard } from '../cards.js';
 import { curveOutProbability } from '../curve.js';
@@ -44,26 +44,38 @@ function renderSummary(deck, s) {
 function renderDraw(deck, s) {
   const live = deck.cards.filter((c) => c.count > 0 && c.name.trim());
   for (const id of [...deck.targets]) if (!live.some((c) => c.id === id)) deck.targets.delete(id);
-  const copies = live.filter((c) => deck.targets.has(c.id)).reduce((a, c) => a + c.count, 0);
+  const picked = live.filter((c) => deck.targets.has(c.id));
+  const copies = picked.reduce((a, c) => a + c.count, 0);
+  // 「すべて」は2種類以上選んだときだけ意味がある
+  const all = deck.match === 'all' && picked.length >= 2;
   const maxNeed = Math.max(1, Math.min(4, copies));
   if (deck.need > maxNeed) deck.need = maxNeed;
   let body;
   if (s.total < HAND_SIZE) {
     body = `<p class="empty">デッキが${HAND_SIZE}枚以上になると計算できます。</p>`;
   } else if (!copies) {
-    body = '<p class="empty">上のカードを選ぶと、引ける確率を表示します。複数選ぶと「どれか」を引く確率になります。</p>';
+    body = '<p class="empty">上のカードを選ぶと、引ける確率を表示します。複数選ぶと「どれか」か「すべて」かを切り替えられます。</p>';
+  } else if (all && picked.length > MAX_ALL_GROUPS) {
+    body = `<p class="empty">「すべて」で計算できるのは${MAX_ALL_GROUPS}種類までです。いま${picked.length}種類選んでいるので、${picked.length - MAX_ALL_GROUPS}種類外してください。</p>`;
   } else {
-    const args = { deckSize: s.total, copies, need: deck.need, mulligan: deck.mulligan };
-    const opening = drawProbability({ ...args, turn: 1, onPlay: true });
-    const byTurn = Array.from({ length: TURNS }, (_, i) => drawProbability({ ...args, turn: i + 1, onPlay: state.onPlay }));
+    const at = (turn, onPlay) => (all
+      ? drawAllProbability({ deckSize: s.total, groups: picked.map((c) => c.count), turn, onPlay, mulligan: deck.mulligan })
+      : drawProbability({ deckSize: s.total, copies, need: deck.need, turn, onPlay, mulligan: deck.mulligan }));
+    const opening = at(1, true);
+    const byTurn = Array.from({ length: TURNS }, (_, i) => at(i + 1, state.onPlay));
+    const where = deck.mulligan ? '引き直し後の手札' : '初手7枚';
+    const what = all ? `${where}に 選んだ${picked.length}種類がすべてある確率` : `${where}に ${picked.length >= 2 ? '選んだカードのどれかが ' : ''}${deck.need}枚以上ある確率`;
+    const mulliganNote = all
+      ? '引き直しは「初手にすべてそろっていなければ、選んだカード以外をすべて山札の下に戻して同じ枚数を引く」場合の計算です。'
+      : '引き直しは「初手に必要枚数がなければ、対象以外をすべて山札の下に戻して同じ枚数を引く」場合の計算です。';
     body = `
       <div class="headline">
         <span class="big">${(opening * 100).toFixed(1)}<small>%</small></span>
-        <span class="what">${deck.mulligan ? '引き直し後の手札' : '初手7枚'}に ${deck.need}枚以上ある確率<br><span class="hint">デッキ${s.total}枚中、対象は${copies}枚</span></span>
+        <span class="what">${what}<br><span class="hint">デッキ${s.total}枚中、対象は${all ? picked.map((c) => `${c.count}枚`).join(' と ') : `${copies}枚`}</span></span>
       </div>
-      <h3>${state.onPlay ? '先攻' : '後攻'}で、そのターンまでに引けている確率</h3>
+      <h3>${state.onPlay ? '先攻' : '後攻'}で、そのターンまでに${all ? 'すべて' : ''}引けている確率</h3>
       ${prows(byTurn, (t) => `${t}ターン目`)}
-      ${deck.mulligan ? '<p class="assume">引き直しは「初手に必要枚数がなければ、対象以外をすべて山札の下に戻して同じ枚数を引く」場合の計算です。</p>' : ''}`;
+      ${deck.mulligan ? `<p class="assume">${mulliganNote}</p>` : ''}`;
   }
   $('draw').innerHTML = `
     <h2 id="draw-h">狙ったカードを引ける確率</h2>
@@ -71,11 +83,17 @@ function renderDraw(deck, s) {
       ${live.map((c) => `<button type="button" class="chip" id="chip-${c.id}" data-chip="${c.id}" aria-pressed="${deck.targets.has(c.id)}">${esc(c.name)} <small>×${c.count}</small></button>`).join('')}
     </div>
     <div class="options">
-      <label for="need">必要な枚数
+      <div class="field-inline"><span id="match-label">複数選んだとき</span>
+        <div class="seg-ctl" role="group" aria-labelledby="match-label">
+          <button type="button" id="match-any" aria-pressed="${deck.match !== 'all'}">どれかを引く</button><button type="button" id="match-all" aria-pressed="${deck.match === 'all'}">すべてそろう</button>
+        </div>
+      </div>
+      ${all ? '' : `<label for="need">必要な枚数
         <select id="need">${Array.from({ length: maxNeed }, (_, i) => `<option value="${i + 1}"${deck.need === i + 1 ? ' selected' : ''}>${i + 1}枚以上</option>`).join('')}</select>
-      </label>
+      </label>`}
       <label for="mulligan"><input type="checkbox" id="mulligan"${deck.mulligan ? ' checked' : ''}> 初手を引き直す（マリガン）</label>
     </div>
+    ${deck.match === 'all' && picked.length === 1 ? '<p class="hint">「すべてそろう」は2種類以上選ぶと計算します。いまは1種類の確率を表示しています。</p>' : ''}
     ${body}`;
 }
 
@@ -280,6 +298,12 @@ export function setupAnalysis(update) {
   });
 
   $('draw').addEventListener('click', (e) => {
+    const mode = e.target.closest('#match-any, #match-all');
+    if (mode) {
+      activeDeck().match = mode.id === 'match-all' ? 'all' : 'any';
+      update();
+      return;
+    }
     const id = Number(e.target.closest('[data-chip]')?.dataset.chip);
     if (!id) return;
     const { targets } = activeDeck();

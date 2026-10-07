@@ -142,7 +142,8 @@ table.data.log td:nth-child(4), table.data.log td:nth-child(5) { white-space: no
 .chip small { opacity: 0.75; font-variant-numeric: tabular-nums; }
 .options { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font-size: 14px; }
 .options select { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
-.options label { display: inline-flex; align-items: center; gap: 6px; }
+.options label, .field-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.options .seg-ctl button { font-size: 13px; padding: 3px 12px; }
 
 .headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; border-top: 1px solid var(--line); padding-top: 12px; }
 .headline .big { font-family: var(--font-display); font-weight: 900; font-size: clamp(40px, 9vw, 56px); line-height: 1; font-variant-numeric: tabular-nums; }
