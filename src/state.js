@@ -2,7 +2,9 @@
 const STORAGE_KEY = 'lorcana-deck-lab:v2';
 const OLD_KEY = 'lorcana-deck-lab:v1';
 
-export const TABS = ['analysis', 'sim', 'compare', 'matches'];
+import { newLore, normalizeLore } from './lore.js';
+
+export const TABS = ['analysis', 'sim', 'compare', 'matches', 'lore'];
 
 // 最初に表示する見本。実在のカードではなく、形だけのダミー。
 const SAMPLE = [[1, true], [1, true], [2, true], [2, true], [2, false], [3, true], [3, true], [3, true], [4, true], [4, true], [4, false], [5, true], [5, false], [6, true], [7, false]]
@@ -45,6 +47,7 @@ export const state = {
   tab: 'analysis',
   curveStart: 1,
   matches: [],
+  lore: newLore(),
 };
 state.activeId = state.decks[0].id;
 
@@ -67,6 +70,7 @@ export function load() {
       state.tab = TABS.includes(saved.tab) ? saved.tab : 'analysis';
       state.curveStart = saved.curveStart === 2 ? 2 : 1;
       state.matches = Array.isArray(saved.matches) ? saved.matches : [];
+      state.lore = normalizeLore(saved.lore);
       return;
     }
     // 1つのデッキだけを保存していた旧形式から引き継ぐ
@@ -84,7 +88,7 @@ export function save() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       decks: state.decks.map(packDeck),
       activeId: state.activeId, compareId: state.compareId, onPlay: state.onPlay,
-      tab: state.tab, curveStart: state.curveStart, matches: state.matches,
+      tab: state.tab, curveStart: state.curveStart, matches: state.matches, lore: state.lore,
     }));
   } catch { /* 保存できない環境でも計算は続ける */ }
 }

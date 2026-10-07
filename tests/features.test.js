@@ -108,3 +108,32 @@ test('デッキの差分', () => {
   const b = [{ name: 'X', count: 4 }, { name: 'Y', count: 4 }, { name: 'W', count: 2 }];
   assert.deepEqual(diffDecks(a, b), [{ name: 'W', a: 0, b: 2 }, { name: 'Y', a: 2, b: 4 }, { name: 'Z', a: 4, b: 0 }]);
 });
+
+// ---------- ロアカウンター ----------
+import { newLore, normalizeLore, addLore, addTurn, loreWinner } from '../src/lore.js';
+
+test('ロア: 増減は0〜99に収まり、元の値は変えない', () => {
+  const a = newLore();
+  const b = addLore(a, 'me', 3);
+  assert.deepEqual(a, { me: 0, opp: 0, turn: 1, flip: false });
+  assert.equal(b.me, 3);
+  assert.equal(addLore(a, 'opp', -1).opp, 0);
+  assert.equal(addLore({ ...a, me: 98 }, 'me', 4).me, 99);
+  assert.equal(addLore(a, 'x', 1), a);
+  assert.equal(addTurn(a, -1).turn, 1);
+  assert.equal(addTurn(a, 1).turn, 2);
+});
+
+test('ロア: 20で到達、同時到達は多いほう', () => {
+  assert.equal(loreWinner({ me: 19, opp: 19 }), null);
+  assert.equal(loreWinner({ me: 20, opp: 3 }), 'me');
+  assert.equal(loreWinner({ me: 3, opp: 21 }), 'opp');
+  assert.equal(loreWinner({ me: 22, opp: 20 }), 'me');
+  assert.equal(loreWinner({ me: 20, opp: 20 }), 'both');
+});
+
+test('ロア: 壊れた保存データは初期値に直す', () => {
+  assert.deepEqual(normalizeLore(undefined), newLore());
+  assert.deepEqual(normalizeLore({ me: -5, opp: 'x', turn: 0, flip: 1 }), { me: 0, opp: 0, turn: 1, flip: true });
+  assert.deepEqual(normalizeLore({ me: 12, opp: 7, turn: 5, flip: false }), { me: 12, opp: 7, turn: 5, flip: false });
+});
