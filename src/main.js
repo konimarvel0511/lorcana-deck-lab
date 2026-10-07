@@ -1,6 +1,6 @@
 import { HAND_SIZE, atLeast, drawProbability, inkOnCurve, openingInkableDistribution } from './prob.js';
-import { INK_COLORS, MIN_DECK_SIZE, MAX_COPIES, MAX_COST_BUCKET, parseDeckList, summarize } from './deck.js';
-import { lookupMany } from './cards.js';
+import { INK_COLORS, MIN_DECK_SIZE, MAX_COPIES, MAX_COST_BUCKET, colorLabel, parseDeckList, summarize } from './deck.js';
+import { CARD_COUNT, CARD_DATA_DATE, cardNames, fillFromData, lookupCard } from './cards.js';
 
 const STORAGE_KEY = 'lorcana-deck-lab:v1';
 const TURNS = 8;
@@ -47,7 +47,7 @@ function renderRows() {
   $('deck-rows').innerHTML = state.cards.map((c) => `
     <tr data-id="${c.id}">
       <td><input class="num" id="count-${c.id}" data-field="count" type="number" min="0" max="99" inputmode="numeric" value="${c.count}" aria-label="枚数"></td>
-      <td><input class="name" id="name-${c.id}" data-field="name" type="text" value="${esc(c.name)}" aria-label="カード名"></td>
+      <td><input class="name" id="name-${c.id}" data-field="name" type="text" list="card-names" autocomplete="off" value="${esc(c.name)}" aria-label="カード名"></td>
       <td><input class="num${c.cost === null ? ' missing' : ''}" id="cost-${c.id}" data-field="cost" type="number" min="0" max="20" inputmode="numeric" value="${c.cost ?? ''}" placeholder="?" aria-label="コスト"></td>
       <td><select id="ink-${c.id}" data-field="inkable" class="${c.inkable === null ? 'missing' : ''}" aria-label="インクにできるか">
         <option value=""${c.inkable === null ? ' selected' : ''}>未入力</option>
@@ -57,6 +57,7 @@ function renderRows() {
       <td><select id="color-${c.id}" data-field="color" aria-label="インクの色">
         <option value="">−</option>
         ${INK_COLORS.map((k) => `<option value="${k.id}"${c.color === k.id ? ' selected' : ''}>${k.label}</option>`).join('')}
+        ${c.color.includes('-') ? `<option value="${esc(c.color)}" selected>${esc(colorLabel(c.color))}</option>` : ''}
       </select></td>
       <td><button type="button" class="del" data-del="${c.id}" aria-label="${esc(c.name)} を削除">削除</button></td>
     </tr>`).join('');
@@ -252,9 +253,17 @@ $('import-btn').addEventListener('click', () => {
   // 同じ名前のカードは、入力済みのコストやインク情報を引き継ぐ
   const known = new Map(state.isSample ? [] : state.cards.map((c) => [c.name, c]));
   state.cards = entries.map((e) => withId({ ...(known.get(e.name) || {}), ...e }));
+  for (const c of state.cards) {
+    const info = lookupCard(c.name);
+    if (info) c.name = info.name; // 表記を正式名にそろえる
+    fillFromData(c);
+  }
   state.targets = new Set();
   state.isSample = false;
-  status.textContent = `${entries.length}種類を読み込みました。` + (skipped.length ? `読めなかった行: ${skipped.map((x) => `${x.line}行目`).join('、')}` : '') + ' 表でコストとインクを入力してください。';
+  const missing = state.cards.filter((c) => c.cost === null || c.inkable === null).length;
+  status.textContent = `${entries.length}種類を読み込みました。`
+    + (skipped.length ? `読めなかった行: ${skipped.map((x) => `${x.line}行目`).join('、')}。` : '')
+    + (missing ? `${missing}種類はカードデータに見つからなかったため、表でコストとインクを入力してください。` : 'コストとインクはカードデータから入力しました。');
   update({ rows: true });
 });
 
@@ -266,28 +275,27 @@ $('sample-btn').addEventListener('click', () => {
   update({ rows: true });
 });
 
-$('autofill-btn').addEventListener('click', async () => {
-  const btn = $('autofill-btn');
+$('autofill-btn').addEventListener('click', () => {
   const status = $('autofill-status');
   const todo = state.cards.filter((c) => c.name.trim() && (c.cost === null || c.inkable === null));
   if (!todo.length) { status.textContent = '未入力のカードはありません。'; return; }
-  btn.disabled = true;
-  status.textContent = `カード情報を調べています（${todo.length}種類）…`;
-  try {
-    const found = await lookupMany(todo.map((c) => c.name), (name, info) => {
-      if (!info) return;
-      for (const c of state.cards) {
-        if (c.name !== name) continue;
-        if (c.cost === null) c.cost = info.cost;
-        if (c.inkable === null) c.inkable = info.inkable;
-        if (!c.color && INK_COLORS.some((k) => k.id === info.color)) c.color = info.color;
-      }
-    });
-    status.textContent = `${found}種類を入力しました。` + (found < todo.length ? `見つからなかった${todo.length - found}種類は表に直接入力してください（英語の正式名「名前 - バージョン」のみ対応）。` : '');
-  } catch {
-    status.textContent = 'カード情報を取得できませんでした。表にコストとインクを直接入力してください。';
-  }
-  btn.disabled = false;
+  const filled = todo.filter(fillFromData).length;
+  const left = todo.length - filled;
+  status.textContent = (filled ? `${filled}種類を入力しました。` : '')
+    + (left ? `${left}種類はカードデータに見つかりませんでした。英語の正式名（例: Elsa - Spirit of Winter）にするか、表に直接入力してください。` : '');
+  if (filled) state.isSample = false;
+  update({ rows: true });
+});
+
+// カード名を入力し終えたとき、データにあれば未入力の項目を埋める
+$('deck-rows').addEventListener('change', (e) => {
+  if (e.target.dataset.field !== 'name') return;
+  const card = state.cards.find((c) => c.id === Number(e.target.closest('tr')?.dataset.id));
+  if (!card) return;
+  const info = lookupCard(card.name);
+  if (!info) return;
+  card.name = info.name;
+  fillFromData(card);
   update({ rows: true });
 });
 
@@ -327,6 +335,9 @@ document.addEventListener('focusin', (e) => {
   showTip(t, r.left + r.width / 2, r.top);
 });
 document.addEventListener('focusout', () => { tip.hidden = true; });
+
+$('card-names').innerHTML = cardNames().map((n) => `<option value="${esc(n)}"></option>`).join('');
+$('data-note').textContent = `カードデータ: 英語版 ${CARD_COUNT}種類（${CARD_DATA_DATE}時点）。出典 LorcanaJSON。`;
 
 load();
 update({ rows: true });

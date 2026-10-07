@@ -44,9 +44,11 @@
       </div>
       <div class="row">
         <button type="button" class="btn" id="add-btn">カードを追加</button>
-        <button type="button" class="btn" id="autofill-btn">コストとインクを自動入力（英語名のみ・試験的）</button>
+        <button type="button" class="btn" id="autofill-btn">コストとインクを自動入力</button>
       </div>
       <p id="autofill-status" class="status" role="status"></p>
+      <p class="hint">英語の正式名（例: Elsa - Spirit of Winter）なら、コスト・インク・色を自動で入力します。日本語名は表に直接入力してください。</p>
+      <datalist id="card-names"></datalist>
     </section>
 
     <div class="results">
@@ -63,6 +65,7 @@
 
   <footer class="foot">
     <p>確率は、よく切った山札から引く前提の計算値です。カードの効果による追加ドローは含みません。</p>
+    <p id="data-note"></p>
     <p>非公式のファンメイドツールです。Disney および Ravensburger とは関係ありません。</p>
   </footer>
 </div>

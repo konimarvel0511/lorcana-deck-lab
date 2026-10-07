@@ -43,6 +43,11 @@ export function parseDeckList(text) {
   return { entries: [...byName].map(([name, count]) => ({ name, count })), skipped };
 }
 
+/** 色の値（amber や amber-steel）を表示名にする。 */
+export function colorLabel(value) {
+  return String(value || '').split('-').map((id) => INK_COLORS.find((k) => k.id === id)?.label || id).join('／');
+}
+
 /** デッキ全体の集計。cards: [{count, name, cost, inkable, color}] */
 export function summarize(cards) {
   const curve = Array.from({ length: MAX_COST_BUCKET + 1 }, (_, cost) => ({ cost, inkable: 0, uninkable: 0, unknown: 0 }));
@@ -64,7 +69,8 @@ export function summarize(cards) {
     } else {
       costUnknown += n;
     }
-    if (c.color) colors.set(c.color, (colors.get(c.color) || 0) + n);
+    // 2色のカード（例: amber-steel）は両方の色に数える
+    for (const color of String(c.color || '').split('-').filter(Boolean)) colors.set(color, (colors.get(color) || 0) + n);
     if (n > MAX_COPIES) overLimit.push(c.name);
   }
   return {

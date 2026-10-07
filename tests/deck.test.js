@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseDeckList, summarize } from '../src/deck.js';
-import { splitCardName, pickExactMatch } from '../src/cards.js';
+import { lookupCard, fillFromData, CARD_COUNT } from '../src/cards.js';
 
 test('いろいろな書き方を読める', () => {
   const { entries, skipped } = parseDeckList(`
@@ -45,15 +45,26 @@ test('集計', () => {
   assert.deepEqual(s.overLimit, ['D']);
 });
 
-test('カード名の分割と完全一致の選択', () => {
-  assert.deepEqual(splitCardName('Elsa - Spirit of Winter'), { name: 'Elsa', version: 'Spirit of Winter' });
-  assert.deepEqual(splitCardName('Be Prepared'), { name: 'Be Prepared', version: '' });
-  const results = { results: [
-    { name: 'Elsa', version: 'Snow Queen', cost: 4, inkwell: true, ink: 'Amethyst' },
-    { name: 'Elsa', version: 'Spirit of Winter', cost: 8, inkwell: false, ink: 'Amethyst' },
-  ] };
-  assert.deepEqual(pickExactMatch(results, 'elsa - spirit of winter'), { cost: 8, inkable: false, color: 'amethyst' });
-  assert.equal(pickExactMatch(results, 'Elsa - Ice Maker'), null);
-  assert.equal(pickExactMatch(results, 'Elsa'), null); // バージョン違いが複数あるときは選ばない
-  assert.equal(pickExactMatch([], 'Elsa'), null);
+test('内蔵カードデータから引ける', () => {
+  assert.ok(CARD_COUNT > 2000);
+  assert.deepEqual(lookupCard('Ariel - On Human Legs'), { name: 'Ariel - On Human Legs', cost: 4, inkable: true, color: 'amber' });
+  // 大文字小文字・記号・アクセント記号の違いは無視する
+  assert.equal(lookupCard('  ariel – on human legs ')?.cost, 4);
+  assert.equal(lookupCard('Te Ka - The Burning One')?.name, 'Te Kā - The Burning One');
+  assert.equal(lookupCard('Be Our Guest')?.name, 'Be Our Guest');
+  assert.equal(lookupCard('Ariel'), null); // バージョンなしでは決められない
+  assert.equal(lookupCard('アリエル'), null);
+});
+
+test('未入力の項目だけ埋める', () => {
+  const card = { name: 'Ariel - On Human Legs', cost: 9, inkable: null, color: '' };
+  assert.equal(fillFromData(card), true);
+  assert.deepEqual(card, { name: 'Ariel - On Human Legs', cost: 9, inkable: true, color: 'amber' });
+  assert.equal(fillFromData(card), false);
+  assert.equal(fillFromData({ name: '存在しないカード', cost: null, inkable: null, color: '' }), false);
+});
+
+test('2色のカードは両方の色に数える', () => {
+  const s = summarize([{ name: 'X', count: 3, cost: 2, inkable: true, color: 'amber-steel' }, { name: 'Y', count: 4, cost: 2, inkable: true, color: 'steel' }]);
+  assert.deepEqual(s.colors.map((c) => [c.id, c.count]), [['amber', 3], ['steel', 7]]);
 });
