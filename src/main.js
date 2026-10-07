@@ -5,6 +5,7 @@ import { renderAnalysis, setupAnalysis } from './views/analysis.js';
 import { renderSimulator, setupSimulator, resetSimulator } from './views/simulator.js';
 import { renderCompare } from './views/compare.js';
 import { renderMatches, setupMatches } from './views/matches.js';
+import { renderLore, setupLore, keepScreenOn } from './views/lore.js';
 
 let confirmingDelete = false;
 
@@ -28,7 +29,9 @@ function update({ rows = false } = {}) {
   if (state.tab === 'analysis') renderAnalysis({ rows });
   else if (state.tab === 'sim') renderSimulator();
   else if (state.tab === 'compare') renderCompare();
-  else renderMatches();
+  else if (state.tab === 'matches') renderMatches();
+  else renderLore();
+  keepScreenOn(state.tab === 'lore');
   if (focusId && document.activeElement?.id !== focusId) $(focusId)?.focus();
   save();
 }
@@ -88,6 +91,8 @@ for (const tab of TABS) {
   $(`tabbtn-${tab}`).addEventListener('click', () => {
     state.tab = tab;
     update({ rows: true });
+    // カウンターは対戦中に片手で使うので、すぐ押せる位置まで画面を送る
+    if (tab === 'lore') $('tab-lore').scrollIntoView({ block: 'start' });
   });
 }
 
@@ -109,6 +114,7 @@ $('tab-compare').addEventListener('click', (e) => {
 setupAnalysis(deckChanged);
 setupSimulator(update);
 setupMatches(update);
+setupLore(update, () => { state.tab = 'matches'; update(); });
 setupTooltips();
 
 $('card-names').innerHTML = cardNames().map((n) => `<option value="${esc(n)}"></option>`).join('');

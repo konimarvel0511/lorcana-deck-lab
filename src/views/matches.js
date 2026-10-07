@@ -10,6 +10,16 @@ let pendingDelete = null;
 let csvShown = false;
 let status = '';
 
+/** ほかのタブから、フォームの内容をあらかじめ入れておく。 */
+export function prefillMatch({ deckId, onPlay, note }) {
+  form.date = today();
+  form.deckId = deckId;
+  form.onPlay = onPlay;
+  form.note = note;
+  form.opp = new Set();
+  status = 'ロアカウンターの結果をメモに入れました。相手の色を選んで、勝ち負けのボタンで記録してください。';
+}
+
 const record = (t) => `${t.win}勝 ${t.loss}敗${t.draw ? ` ${t.draw}分` : ''}`;
 const rate = (t) => (t.rate === null ? '−' : pct(t.rate));
 

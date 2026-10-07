@@ -12,7 +12,7 @@
 <div class="page">
   <header class="masthead">
     <h1>Lorcana Deck Lab</h1>
-    <p>デッキの確率を計算し、初手を試し、調整の前後を比べ、対戦の結果を記録します。</p>
+    <p>デッキの確率を計算し、初手を試し、調整の前後を比べ、対戦中のロアと結果を記録します。</p>
   </header>
 
   <div class="deckbar">
@@ -36,6 +36,7 @@
     <button type="button" role="tab" id="tabbtn-sim" aria-controls="tab-sim" aria-selected="false">初手シミュレーター</button>
     <button type="button" role="tab" id="tabbtn-compare" aria-controls="tab-compare" aria-selected="false">デッキ比較</button>
     <button type="button" role="tab" id="tabbtn-matches" aria-controls="tab-matches" aria-selected="false">対戦記録</button>
+    <button type="button" role="tab" id="tabbtn-lore" aria-controls="tab-lore" aria-selected="false">ロアカウンター</button>
   </div>
 
   <main>
@@ -85,6 +86,7 @@
     <div class="results narrow" id="tab-sim" role="tabpanel" aria-labelledby="tabbtn-sim" hidden></div>
     <div class="results narrow" id="tab-compare" role="tabpanel" aria-labelledby="tabbtn-compare" hidden></div>
     <div class="results narrow" id="tab-matches" role="tabpanel" aria-labelledby="tabbtn-matches" hidden></div>
+    <div class="results narrow" id="tab-lore" role="tabpanel" aria-labelledby="tabbtn-lore" hidden></div>
   </main>
 
   <footer class="foot">
