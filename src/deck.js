@@ -81,3 +81,17 @@ export function summarize(cards) {
     overLimit,
   };
 }
+
+/** 2つのデッキで枚数が違うカードの一覧（名前順）。 */
+export function diffDecks(cardsA, cardsB) {
+  const count = (cards) => {
+    const m = new Map();
+    for (const c of cards) if (c.count > 0 && c.name.trim()) m.set(c.name.trim(), (m.get(c.name.trim()) || 0) + c.count);
+    return m;
+  };
+  const a = count(cardsA), b = count(cardsB);
+  return [...new Set([...a.keys(), ...b.keys()])]
+    .map((name) => ({ name, a: a.get(name) || 0, b: b.get(name) || 0 }))
+    .filter((d) => d.a !== d.b)
+    .sort((x, y) => x.name.localeCompare(y.name, 'ja'));
+}
