@@ -111,3 +111,66 @@ test('インク: シミュレーションと一致する', () => {
 test('初手のインク可能枚数の分布は合計1', () => {
   close(openingInkableDistribution(60, 44).reduce((a, b) => a + b, 0), 1);
 });
+
+// ---------- AND条件 ----------
+import { drawAllProbability } from '../src/prob.js';
+
+test('AND: 1種類だけならOR条件（1枚以上）と同じ', () => {
+  for (const mulligan of [false, true]) {
+    for (const turn of [1, 4]) {
+      close(
+        drawAllProbability({ deckSize: 60, groups: [4], turn, onPlay: true, mulligan }),
+        drawProbability({ deckSize: 60, copies: 4, need: 1, turn, onPlay: true, mulligan }),
+      );
+    }
+  }
+});
+
+test('AND: 2種類を初手でそろえる確率（手計算）', () => {
+  // 1 - P(Aなし) - P(Bなし) + P(どちらもなし)
+  const exact = 1 - 2 * (choose(56, 7) / choose(60, 7)) + choose(52, 7) / choose(60, 7);
+  close(drawAllProbability({ deckSize: 60, groups: [4, 4], turn: 1, onPlay: true }), exact);
+});
+
+test('AND: ORより低く、種類が増えるほど下がり、ターンが進むほど上がる', () => {
+  const two = drawAllProbability({ deckSize: 60, groups: [4, 4], turn: 4 });
+  const three = drawAllProbability({ deckSize: 60, groups: [4, 4, 4], turn: 4 });
+  assert.ok(two < drawProbability({ deckSize: 60, copies: 8, turn: 4 }));
+  assert.ok(three < two);
+  assert.ok(drawAllProbability({ deckSize: 60, groups: [4, 4], turn: 6 }) > two);
+  assert.ok(drawAllProbability({ deckSize: 60, groups: [4, 4], turn: 4, mulligan: true }) > two);
+});
+
+test('AND: マリガンあり・なしともシミュレーションと一致する', () => {
+  let seed = 4242;
+  const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const N = 60, groups = [4, 3, 2], turn = 5, trials = 200000;
+  for (const mulligan of [false, true]) {
+    let ok = 0;
+    for (let i = 0; i < trials; i++) {
+      // 0 = 対象外、1..3 = 各カード
+      const deck = [];
+      groups.forEach((k, g) => { for (let c = 0; c < k; c++) deck.push(g + 1); });
+      while (deck.length < N) deck.push(0);
+      shuffle(deck);
+      let hand = deck.splice(0, 7);
+      const has = (cards) => groups.every((_, g) => cards.includes(g + 1));
+      if (mulligan && !has(hand)) {
+        const kept = hand.filter((c) => c !== 0);
+        const back = 7 - kept.length;
+        hand = [...kept, ...deck.splice(0, back)];
+        for (let b = 0; b < back; b++) deck.push(0);
+        shuffle(deck);
+      }
+      if (has([...hand, ...deck.slice(0, turn - 1)])) ok++;
+    }
+    const exact = drawAllProbability({ deckSize: N, groups, turn, onPlay: true, mulligan });
+    assert.ok(Math.abs(ok / trials - exact) < 0.004, `mulligan=${mulligan}: ${ok / trials} vs ${exact}`);
+  }
+});
+
+test('AND: 種類が多すぎる・枚数が不正なら0', () => {
+  assert.equal(drawAllProbability({ deckSize: 60, groups: [1, 1, 1, 1, 1, 1, 1], turn: 3 }), 0);
+  assert.equal(drawAllProbability({ deckSize: 60, groups: [], turn: 3 }), 0);
+});

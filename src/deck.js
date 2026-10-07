@@ -43,6 +43,11 @@ export function parseDeckList(text) {
   return { entries: [...byName].map(([name, count]) => ({ name, count })), skipped };
 }
 
+/** 色の値（amber や amber-steel）を表示名にする。 */
+export function colorLabel(value) {
+  return String(value || '').split('-').map((id) => INK_COLORS.find((k) => k.id === id)?.label || id).join('／');
+}
+
 /** デッキ全体の集計。cards: [{count, name, cost, inkable, color}] */
 export function summarize(cards) {
   const curve = Array.from({ length: MAX_COST_BUCKET + 1 }, (_, cost) => ({ cost, inkable: 0, uninkable: 0, unknown: 0 }));
@@ -64,7 +69,8 @@ export function summarize(cards) {
     } else {
       costUnknown += n;
     }
-    if (c.color) colors.set(c.color, (colors.get(c.color) || 0) + n);
+    // 2色のカード（例: amber-steel）は両方の色に数える
+    for (const color of String(c.color || '').split('-').filter(Boolean)) colors.set(color, (colors.get(color) || 0) + n);
     if (n > MAX_COPIES) overLimit.push(c.name);
   }
   return {
@@ -74,4 +80,18 @@ export function summarize(cards) {
     colors: INK_COLORS.filter((k) => colors.has(k.id)).map((k) => ({ ...k, count: colors.get(k.id) })),
     overLimit,
   };
+}
+
+/** 2つのデッキで枚数が違うカードの一覧（名前順）。 */
+export function diffDecks(cardsA, cardsB) {
+  const count = (cards) => {
+    const m = new Map();
+    for (const c of cards) if (c.count > 0 && c.name.trim()) m.set(c.name.trim(), (m.get(c.name.trim()) || 0) + c.count);
+    return m;
+  };
+  const a = count(cardsA), b = count(cardsB);
+  return [...new Set([...a.keys(), ...b.keys()])]
+    .map((name) => ({ name, a: a.get(name) || 0, b: b.get(name) || 0 }))
+    .filter((d) => d.a !== d.b)
+    .sort((x, y) => x.name.localeCompare(y.name, 'ja'));
 }

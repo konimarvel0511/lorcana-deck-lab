@@ -12,57 +12,84 @@
 <div class="page">
   <header class="masthead">
     <h1>Lorcana Deck Lab</h1>
-    <p>デッキリストから、狙ったカードを引ける確率とインクの安定度を計算します。</p>
+    <p>デッキの確率を計算し、初手を試し、調整の前後を比べ、対戦の結果を記録します。</p>
   </header>
 
-  <main class="layout">
-    <section class="deck" aria-labelledby="deck-h">
-      <div class="deck-head">
-        <h2 id="deck-h">デッキ</h2>
-        <p id="deck-summary" class="deck-summary"></p>
-      </div>
-      <div id="deck-warnings"></div>
-
-      <details class="paste" id="paste">
-        <summary>デッキリストを貼り付けて読み込む</summary>
-        <label for="deck-text" class="hint">1行に「枚数 カード名」。例: 4 Elsa - Spirit of Winter</label>
-        <textarea id="deck-text" rows="8" spellcheck="false" placeholder="4 Elsa - Spirit of Winter&#10;4 Be Prepared&#10;3 ミッキーマウス"></textarea>
-        <div class="row">
-          <button type="button" class="btn primary" id="import-btn">読み込む</button>
-          <button type="button" class="btn" id="sample-btn">サンプルに戻す</button>
-        </div>
-        <p id="import-status" class="status" role="status"></p>
-      </details>
-
-      <div class="table-wrap">
-        <table class="cards">
-          <thead>
-            <tr><th scope="col">枚数</th><th scope="col">カード名</th><th scope="col">コスト</th><th scope="col">インク</th><th scope="col">色</th><th scope="col" aria-label="操作"></th></tr>
-          </thead>
-          <tbody id="deck-rows"></tbody>
-        </table>
-      </div>
-      <div class="row">
-        <button type="button" class="btn" id="add-btn">カードを追加</button>
-        <button type="button" class="btn" id="autofill-btn">コストとインクを自動入力（英語名のみ・試験的）</button>
-      </div>
-      <p id="autofill-status" class="status" role="status"></p>
-    </section>
-
-    <div class="results">
-      <div class="turn-order" role="group" aria-label="先攻か後攻か">
-        <button type="button" id="order-play" aria-pressed="true">先攻</button>
-        <button type="button" id="order-draw" aria-pressed="false">後攻</button>
-        <span class="hint">先攻は1ターン目にドローしません。</span>
-      </div>
-      <section id="draw" aria-labelledby="draw-h"></section>
-      <section id="ink" aria-labelledby="ink-h"></section>
-      <section id="curve" aria-labelledby="curve-h"></section>
+  <div class="deckbar">
+    <div class="deckbar-main">
+      <label for="deck-select">デッキ</label>
+      <select id="deck-select"></select>
+      <input type="text" id="deck-name" aria-label="デッキの名前" maxlength="40">
     </div>
+    <div class="row">
+      <button type="button" class="btn small" id="deck-new">新規</button>
+      <button type="button" class="btn small" id="deck-dup">複製</button>
+      <button type="button" class="btn small" id="deck-del">削除</button>
+    </div>
+    <div class="seg-ctl" role="group" aria-label="先攻か後攻か">
+      <button type="button" id="order-play" aria-pressed="true">先攻</button><button type="button" id="order-draw" aria-pressed="false">後攻</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="機能">
+    <button type="button" role="tab" id="tabbtn-analysis" aria-controls="tab-analysis" aria-selected="true">分析</button>
+    <button type="button" role="tab" id="tabbtn-sim" aria-controls="tab-sim" aria-selected="false">初手シミュレーター</button>
+    <button type="button" role="tab" id="tabbtn-compare" aria-controls="tab-compare" aria-selected="false">デッキ比較</button>
+    <button type="button" role="tab" id="tabbtn-matches" aria-controls="tab-matches" aria-selected="false">対戦記録</button>
+  </div>
+
+  <main>
+    <div class="layout" id="tab-analysis" role="tabpanel" aria-labelledby="tabbtn-analysis">
+    <section class="deck" aria-labelledby="deck-h">
+        <div class="deck-head">
+          <h2 id="deck-h">カード</h2>
+          <p id="deck-summary" class="deck-summary"></p>
+        </div>
+        <div id="deck-warnings"></div>
+
+        <details class="paste" id="paste">
+          <summary>デッキリストを貼り付けて読み込む</summary>
+          <label for="deck-text" class="hint">1行に「枚数 カード名」。例: 4 Elsa - Spirit of Winter</label>
+          <textarea id="deck-text" rows="8" spellcheck="false" placeholder="4 Elsa - Spirit of Winter&#10;4 Be Prepared&#10;3 ミッキーマウス"></textarea>
+          <div class="row">
+            <button type="button" class="btn primary" id="import-btn">読み込む</button>
+            <button type="button" class="btn" id="sample-btn">見本の内容に戻す</button>
+          </div>
+          <p id="import-status" class="status" role="status"></p>
+        </details>
+
+        <div class="table-wrap">
+          <table class="cards">
+            <thead>
+              <tr><th scope="col">枚数</th><th scope="col">カード名</th><th scope="col">コスト</th><th scope="col">インク</th><th scope="col">色</th><th scope="col" aria-label="操作"></th></tr>
+            </thead>
+            <tbody id="deck-rows"></tbody>
+          </table>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="add-btn">カードを追加</button>
+          <button type="button" class="btn" id="autofill-btn">コストとインクを自動入力</button>
+        </div>
+        <p id="autofill-status" class="status" role="status"></p>
+        <p class="hint">英語の正式名（例: Elsa - Spirit of Winter）なら、コスト・インク・色を自動で入力します。日本語名は表に直接入力してください。</p>
+        <datalist id="card-names"></datalist>
+      </section>
+
+      <div class="results">
+        <section id="draw" aria-labelledby="draw-h"></section>
+        <section id="ink" aria-labelledby="ink-h"></section>
+        <section id="curveout" aria-labelledby="curveout-h"></section>
+        <section id="curve" aria-labelledby="curve-h"></section>
+      </div>
+    </div>
+    <div class="results narrow" id="tab-sim" role="tabpanel" aria-labelledby="tabbtn-sim" hidden></div>
+    <div class="results narrow" id="tab-compare" role="tabpanel" aria-labelledby="tabbtn-compare" hidden></div>
+    <div class="results narrow" id="tab-matches" role="tabpanel" aria-labelledby="tabbtn-matches" hidden></div>
   </main>
 
   <footer class="foot">
     <p>確率は、よく切った山札から引く前提の計算値です。カードの効果による追加ドローは含みません。</p>
+    <p id="data-note"></p>
     <p>非公式のファンメイドツールです。Disney および Ravensburger とは関係ありません。</p>
   </footer>
 </div>
