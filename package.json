@@ -1,0 +1,11 @@
+{
+  "name": "lorcana-deck-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Disney Lorcana の確率・デッキ分析ツール",
+  "scripts": {
+    "start": "python3 -m http.server 5173",
+    "test": "node --test"
+  }
+}
